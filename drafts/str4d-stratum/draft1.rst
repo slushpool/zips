@@ -40,10 +40,12 @@ interoperability.
 Specification
 =============
 
-The Stratum protocol is an instance of [JSON-RPC-1.0]_. The miner is a JSON-RPC
-client, and the Stratum server is a JSON-RPC server. The miner starts a session
-by opening a standard TCP connection to the server, which is then used for
-two-way line-based communication:
+The Stratum protocol is an instance of [JSON-RPC-1.0]_ protocol. However, the actual
+serialization layer uses [MSGPACK]_ to reduce the bandwidth required for submitting
+mining solutions. The miner is a JSON-RPC client, and the Stratum server is a
+JSON-RPC server. The specification below uses JSON notation for readability reasons.
+The miner starts a session by opening a standard TCP connection
+to the server, which is then used for two-way line-based communication:
 
 - The miner can send requests to the server.
 - The server can respond to requests.
@@ -55,11 +57,7 @@ or either party disconnects, the active session is ended. Servers MAY support
 session resuming; this is negotiated between the client and server during
 initial setup (see `Session Resuming`_).
 
-Each request or response is a JSON string, terminated by an ASCII LF character
-(denoted in the rest of this specification by ``\n``). The LF character MUST NOT
-appear elsewhere in a request or response. Client and server implementations MAY
-assume that once they read a LF character, the current message has been
-completely received.
+Each request or response is serialized into msgpack format
 
 Per [JSON-RPC-1.0]_, there is no requirement for the ``id`` property in requests
 and responses to be unique; only that servers MUST set ``id`` in their responses
@@ -74,6 +72,9 @@ part of the protocol message.
 .. [JSON-RPC-1.0] JSON-RPC.org. *JSON-RPC 1.0 Specifications*.
   URL: http://json-rpc.org/wiki/specification (visited on 2016-09-24).
 
+.. [MSGPACK] msgpack.org. *MSGPACK Specifications*.
+  URL: https://github.com/msgpack/msgpack/blob/master/spec.md (visited on 2016-10-09).
+
 Error Objects
 ~~~~~~~~~~~~~
 
@@ -81,7 +82,7 @@ The [JSON-RPC-1.0]_ specification allows for error objects in responses, but
 does not specify their format. The original Stratum protocol uses the following
 format for error responses [Slushpool-Stratum]_:
 
-    {"id": ##, "result": null, "error": [*ERROR_CODE*, "*ERROR_MESSAGE*", *TRACEBACK*]} ``\n``
+    {"id": ##, "result": null, "error": [*ERROR_CODE*, "*ERROR_MESSAGE*", *TRACEBACK*]}
 
 For compatibility, this format is retained. We therefore define an error object
 as an array:
@@ -178,7 +179,7 @@ indicate that they do not support session resuming. Servers that do not set
 
 - The session ID.
 - ``NONCE_1``
-- Any active job IDs.
+  - Any active job IDs.
 
 Servers MAY drop entries from the cache on their own schedule.
 
@@ -201,7 +202,7 @@ Methods
 
 Request:
 
-    {"id": 1, "method": "mining.subscribe", "params": ["*CONNECT_HOST*", *CONNECT_PORT*, "*MINER_USER_AGENT*", "*SESSION_ID*"]} ``\n``
+    {"id": 1, "method": "mining.subscribe", "params": ["*CONNECT_HOST*", *CONNECT_PORT*, "*MINER_USER_AGENT*", "*SESSION_ID*"]}
 
 ``CONNECT_HOST`` (str)
   The host that the miner is connecting to (from the server URL).
@@ -227,7 +228,7 @@ Request:
 
 Response:
 
-    {"id": 1, "result": ["*SESSION_ID*", "*NONCE_1*"], "error": null} ``\n``
+    {"id": 1, "result": ["*SESSION_ID*", "*NONCE_1*"], "error": null}
 
 ``SESSION_ID`` (str)
   The session id, for use when resuming (see `Session Resuming`_).
@@ -245,7 +246,7 @@ outside the scope of this specification.
 
 Request:
 
-    {"id": 2, "method": "mining.authorize", "params": ["*WORKER_NAME*", "*WORKER_PASSWORD*"]} ``\n``
+    {"id": 2, "method": "mining.authorize", "params": ["*WORKER_NAME*", "*WORKER_PASSWORD*"]}
 
 ``WORKER_NAME`` (str)
   The worker name.
@@ -255,7 +256,7 @@ Request:
 
 Response:
 
-    {"id": 2, "result": *AUTHORIZED*, "error": *ERROR*} ``\n``
+    {"id": 2, "result": *AUTHORIZED*, "error": *ERROR*}
 
 ``AUTHORIZED`` (bool)
   MUST be ``true`` if authorization succeeded. Per [JSON-RPC-1.0]_, MUST be
@@ -272,7 +273,7 @@ Response:
 
 Server message:
 
-    {"id": null, "method": "mining.set_target", "params": ["*TARGET*"]} ``\n``
+    {"id": null, "method": "mining.set_target", "params": ["*TARGET*"]}
 
 ``TARGET`` (hex)
   The server target for the next received job and all subsequent jobs (until the
@@ -305,7 +306,7 @@ conversion.
 
 Server message:
 
-    {"id": null, "method": "mining.notify", "params": ["*JOB_ID*", "*VERSION*", "*PREVHASH*", "*MERKLEROOT*", "*RESERVED*", "*TIME*", "*BITS*", *CLEAN_JOBS*]} ``\n``
+    {"id": null, "method": "mining.notify", "params": ["*JOB_ID*", "*VERSION*", "*PREVHASH*", "*MERKLEROOT*", "*RESERVED*", "*TIME*", "*BITS*", *CLEAN_JOBS*]}
 
 ``JOB_ID`` (str)
   The id of this job.
@@ -349,7 +350,7 @@ The following parameters are only valid for ``VERSION == "04000000"``:
 
 Request:
 
-    {"id": 4, "method": "mining.submit", "params": ["*WORKER_NAME*", "*JOB_ID*", "*TIME*", "*NONCE_2*", "*EQUIHASH_SOLUTION*"]} ``\n``
+    {"id": 4, "method": "mining.submit", "params": ["*WORKER_NAME*", "*JOB_ID*", "*TIME*", "*NONCE_2*", "*EQUIHASH_SOLUTION*"]}
 
 ``WORKER_NAME`` (str)
   A previously-authenticated worker name.
@@ -375,7 +376,7 @@ Request:
 
 Result:
 
-    {"id": 4, "result": *ACCEPTED*, "error": *ERROR*} ``\n``
+    {"id": 4, "result": *ACCEPTED*, "error": *ERROR*}
 
 ``ACCEPTED`` (bool)
   MUST be ``true`` if the submission was accepted. Per [JSON-RPC-1.0]_, MUST be
@@ -399,7 +400,7 @@ Result:
 
 Server message:
 
-    {"id": null, "method": "client.reconnect", "params": [("*HOST*", *PORT*, *WAIT_TIME*)]} ``\n``
+    {"id": null, "method": "client.reconnect", "params": [("*HOST*", *PORT*, *WAIT_TIME*)]}
 
 ``HOST`` (str)
   The host to reconnect to.
@@ -422,7 +423,7 @@ reconnect to the same host and port it is currently connected to.
 
 Request (optional):
 
-    {"id": 3, "method": "mining.suggest_target", "params": ["*TARGET*"]} ``\n``
+    {"id": 3, "method": "mining.suggest_target", "params": ["*TARGET*"]}
 
 ``TARGET`` (hex)
   The target suggested by the miner for the next received job and all subsequent
